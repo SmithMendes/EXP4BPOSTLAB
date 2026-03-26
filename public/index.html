@@ -253,12 +253,48 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 28px 26px;
+      padding: 0;
       backdrop-filter: blur(16px);
       position: relative;
       overflow: hidden;
       transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
       animation: fadeUp 0.45s ease-out both;
+    }
+
+    .card__poster {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 2 / 3;
+      overflow: hidden;
+    }
+
+    .card__poster img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.4s ease;
+    }
+
+    .card:hover .card__poster img {
+      transform: scale(1.05);
+    }
+
+    .card__poster-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      font-weight: 800;
+      color: rgba(255,255,255,0.15);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .card__body {
+      padding: 22px 24px 24px;
     }
 
     .card::after {
@@ -301,7 +337,7 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
       gap: 12px;
     }
 
@@ -722,21 +758,29 @@
       }
       grid.innerHTML = movies.map((m, i) => `
         <div class="card" style="animation-delay:${i * 0.07}s">
-          <div class="card__top">
-            <h3 class="card__title">${esc(m.title)}</h3>
-            <span class="pill pill--${m.recommendation.toLowerCase() === 'yes' ? 'yes' : 'no'}">
-              ${m.recommendation === 'Yes' ? '✓ rec' : '✗ skip'}
-            </span>
+          <div class="card__poster" id="poster-${m.id}" style="background:${gradientFor(m.title)}">
+            <div class="card__poster-fallback">${esc(m.title).substring(0,3)}</div>
           </div>
-          <div class="card__info">
-            <span class="genre-tag">${esc(m.genre)}</span>
-            <div class="stars">${starHtml(m.rating)}</div>
-          </div>
-          <div class="card__bar">
-            <button class="btn btn--outline btn--sm" onclick="openEditModal(${m.id})">Edit</button>
-            <button class="btn btn--delete btn--sm" onclick="deleteMovie(${m.id})">Delete</button>
+          <div class="card__body">
+            <div class="card__top">
+              <h3 class="card__title">${esc(m.title)}</h3>
+              <span class="pill pill--${m.recommendation.toLowerCase() === 'yes' ? 'yes' : 'no'}">
+                ${m.recommendation === 'Yes' ? '✓ rec' : '✗ skip'}
+              </span>
+            </div>
+            <div class="card__info">
+              <span class="genre-tag">${esc(m.genre)}</span>
+              <div class="stars">${starHtml(m.rating)}</div>
+            </div>
+            <div class="card__bar">
+              <button class="btn btn--outline btn--sm" onclick="openEditModal(${m.id})">Edit</button>
+              <button class="btn btn--delete btn--sm" onclick="deleteMovie(${m.id})">Delete</button>
+            </div>
           </div>
         </div>`).join('');
+
+      // Fetch real posters from OMDB via server proxy
+      movies.forEach(m => loadPoster(m.id, m.title, m.genre));
     }
 
     function starHtml(n) {
@@ -744,6 +788,154 @@
     }
 
     function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // Generate a unique gradient from a movie title
+    function gradientFor(title) {
+      let h = 0;
+      for (let i = 0; i < title.length; i++) h = title.charCodeAt(i) + ((h << 5) - h);
+      const hue1 = Math.abs(h) % 360;
+      const hue2 = (hue1 + 40) % 360;
+      return `linear-gradient(135deg, hsl(${hue1},60%,25%), hsl(${hue2},50%,15%))`;
+    }
+
+    // Genre-based color palettes for cinematic posters
+    const genreColors = {
+      'sci-fi':     { bg: ['#0f0c29','#302b63','#24243e'], accent: '#818cf8' },
+      'crime':      { bg: ['#1a1a2e','#16213e','#0f3460'], accent: '#e94560' },
+      'animation':  { bg: ['#0d1117','#1a3a2a','#0d2818'], accent: '#34d399' },
+      'drama':      { bg: ['#1a0a2e','#2d1b4e','#1a0a2e'], accent: '#c084fc' },
+      'action':     { bg: ['#1c0b0b','#3b1010','#1c0b0b'], accent: '#f97316' },
+      'comedy':     { bg: ['#1a1a0a','#2e2e0d','#1a1a0a'], accent: '#fbbf24' },
+      'horror':     { bg: ['#0a0a0a','#1a0a0a','#0d0d0d'], accent: '#ef4444' },
+      'romance':    { bg: ['#1a0a1a','#2e0d2e','#1a0a1a'], accent: '#f472b6' },
+      'thriller':   { bg: ['#0a0a1a','#0d1117','#0a0a1a'], accent: '#60a5fa' },
+      'default':    { bg: ['#0a0a1a','#141428','#0a0a1a'], accent: '#818cf8' },
+    };
+
+    function getGenreColor(genre) {
+      const key = genre.toLowerCase();
+      for (const [g, c] of Object.entries(genreColors)) {
+        if (key.includes(g)) return c;
+      }
+      return genreColors['default'];
+    }
+
+    // Canvas-based cinematic poster generator
+    function loadPoster(id, title, genre) {
+      const el = document.getElementById(`poster-${id}`);
+      if (!el) return;
+
+      // Try fetching from server first (iTunes API)
+      fetch(`/api/poster?title=${encodeURIComponent(title)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.poster) {
+            el.innerHTML = `<img src="${data.poster}" alt="${esc(title)} poster" onerror="generateCanvasPoster('${id}','${title.replace(/'/g,"\\'")}','${genre.replace(/'/g,"\\'")}')"/>`;
+          } else {
+            generateCanvasPoster(id, title, genre);
+          }
+        })
+        .catch(() => generateCanvasPoster(id, title, genre));
+    }
+
+    function generateCanvasPoster(id, title, genre) {
+      const el = document.getElementById(`poster-${id}`);
+      if (!el) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 900;
+      const ctx = canvas.getContext('2d');
+      const colors = getGenreColor(genre);
+
+      // Background gradient
+      const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      bg.addColorStop(0, colors.bg[0]);
+      bg.addColorStop(0.5, colors.bg[1]);
+      bg.addColorStop(1, colors.bg[2]);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Hash for deterministic randomness
+      let seed = 0;
+      for (let i = 0; i < title.length; i++) seed = title.charCodeAt(i) + ((seed << 5) - seed);
+      const rand = () => { seed = (seed * 16807) % 2147483647; return (seed & 0x7fffffff) / 0x7fffffff; };
+
+      // Decorative circles
+      for (let i = 0; i < 4; i++) {
+        const x = rand() * canvas.width;
+        const y = rand() * canvas.height;
+        const r = 40 + rand() * 100;
+        const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grd.addColorStop(0, colors.accent + '18');
+        grd.addColorStop(1, 'transparent');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Decorative lines
+      ctx.strokeStyle = colors.accent + '15';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(rand() * canvas.width, rand() * canvas.height);
+        ctx.lineTo(rand() * canvas.width, rand() * canvas.height);
+        ctx.stroke();
+      }
+
+      // Genre emoji
+      const emojis = { 'sci-fi':'🚀', 'crime':'🔫', 'animation':'🎨', 'drama':'🎭',
+        'action':'💥', 'comedy':'😂', 'horror':'👻', 'romance':'💕', 'thriller':'🔪' };
+      const emoji = emojis[genre.toLowerCase()] || '🎬';
+      ctx.font = '80px serif';
+      ctx.globalAlpha = 0.15;
+      ctx.fillText(emoji, 40, canvas.height - 40);
+      ctx.globalAlpha = 1;
+
+      // Title text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 56px Outfit, sans-serif';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 16;
+
+      // Word wrap
+      const words = title.split(' ');
+      const lines = [];
+      let line = '';
+      for (const w of words) {
+        const test = line ? line + ' ' + w : w;
+        if (ctx.measureText(test).width > canvas.width - 80) {
+          lines.push(line);
+          line = w;
+        } else {
+          line = test;
+        }
+      }
+      lines.push(line);
+
+      const lineHeight = 66;
+      const startY = (canvas.height - lines.length * lineHeight) / 2 + 20;
+      lines.forEach((l, i) => {
+        ctx.fillText(l, 40, startY + i * lineHeight);
+      });
+
+      // Accent bar at bottom
+      ctx.shadowBlur = 0;
+      const bar = ctx.createLinearGradient(0, 0, canvas.width, 0);
+      bar.addColorStop(0, colors.accent);
+      bar.addColorStop(1, colors.accent + '00');
+      ctx.fillStyle = bar;
+      ctx.fillRect(0, canvas.height - 3, canvas.width, 3);
+
+      el.innerHTML = '';
+      const img = new Image();
+      img.src = canvas.toDataURL();
+      img.alt = title + ' poster';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      el.appendChild(img);
+    }
 
     // ─── Filter ─────────────────────────────────────────
     ratingFilter.addEventListener('change', fetchMovies);
