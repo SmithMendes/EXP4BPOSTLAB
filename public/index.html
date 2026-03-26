@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineVault — Movie Recommendations</title>
+  <meta name="description" content="Manage and discover movie recommendations with CineVault." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Two-color palette: Deep Indigo + Warm Coral */
+      --indigo: #4f46e5;
+      --indigo-deep: #3730a3;
+      --indigo-light: #818cf8;
+      --indigo-muted: #6366f1;
+      --coral: #f97316;
+      --coral-light: #fb923c;
+      --coral-soft: rgba(249, 115, 22, 0.12);
+
+      --bg: #06060e;
+      --bg-card: rgba(15, 15, 30, 0.7);
+      --bg-elevated: #0f0f1e;
+      --border: rgba(79, 70, 229, 0.15);
+      --border-hover: rgba(79, 70, 229, 0.4);
+      --text: #eeeef5;
+      --text-dim: #9494b8;
+      --text-faint: #5a5a7a;
+      --radius: 20px;
+      --radius-sm: 12px;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Subtle Two-Color Background Glow ───────────────── */
+    body::before,
+    body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      width: 700px;
+      height: 700px;
+      background: var(--indigo);
+      top: -15%;
+      left: -10%;
+      animation: glow1 20s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      width: 500px;
+      height: 500px;
+      background: var(--coral);
+      bottom: -10%;
+      right: -5%;
+      animation: glow2 18s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow1 {
+      0% {
+        transform: translate(0, 0);
+      }
+
+      100% {
+        transform: translate(60px, 40px);
+      }
+    }
+
+    @keyframes glow2 {
+      0% {
+        transform: translate(0, 0);
+      }
+
+      100% {
+        transform: translate(-50px, -30px);
+      }
+    }
+
+    /* ─── Layout ──────────────────────────────────────────── */
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 28px 100px;
+    }
+
+    /* ─── Header ──────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .header h1 {
+      font-size: 3.2rem;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      background: linear-gradient(135deg, var(--indigo-light), var(--coral));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      margin-top: 10px;
+      font-size: 1.05rem;
+      font-weight: 300;
+      color: var(--text-dim);
+      letter-spacing: 0.3px;
+    }
+
+    /* ─── Controls ────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+
+    .filter-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 4px 6px 4px 18px;
+      backdrop-filter: blur(12px);
+    }
+
+    .filter-pill label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .filter-pill select {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 500;
+      padding: 10px 14px 10px 6px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .filter-pill select option {
+      background: var(--bg-elevated);
+      color: var(--text);
+    }
+
+    .count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      letter-spacing: 0.5px;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 0.88rem;
+      padding: 12px 26px;
+    }
+
+    .btn--accent {
+      background: linear-gradient(135deg, var(--indigo), var(--indigo-muted));
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn--accent:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(79, 70, 229, 0.45);
+    }
+
+    .btn--outline {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    .btn--outline:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-color: var(--border-hover);
+    }
+
+    .btn--delete {
+      background: rgba(239, 68, 68, 0.08);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.15);
+    }
+
+    .btn--delete:hover {
+      background: rgba(239, 68, 68, 0.16);
+    }
+
+    .btn--sm {
+      padding: 8px 16px;
+      font-size: 0.8rem;
+    }
+
+    /* ─── Movie Grid ─────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 22px;
+    }
+
+    /* ─── Movie Card ─────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 26px;
+      backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: fadeUp 0.45s ease-out both;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.06), rgba(249, 115, 22, 0.04));
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      border-color: var(--border-hover);
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.35),
+        0 0 0 1px rgba(79, 70, 229, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .card:hover::after {
+      opacity: 1;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      gap: 12px;
+    }
+
+    .card__title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      line-height: 1.25;
+      flex: 1;
+    }
+
+    .pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 5px 12px;
+      border-radius: 50px;
+      flex-shrink: 0;
+    }
+
+    .pill--yes {
+      background: rgba(79, 70, 229, 0.12);
+      color: var(--indigo-light);
+      border: 1px solid rgba(79, 70, 229, 0.2);
+    }
+
+    .pill--no {
+      background: var(--coral-soft);
+      color: var(--coral-light);
+      border: 1px solid rgba(249, 115, 22, 0.2);
+    }
+
+    .card__info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .genre-tag {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 5px 14px;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+
+    .stars {
+      display: flex;
+      gap: 2px;
+    }
+
+    .star {
+      font-size: 0.9rem;
+      color: var(--text-faint);
+      transition: color 0.15s;
+    }
+
+    .star--on {
+      color: var(--coral);
+      text-shadow: 0 0 8px rgba(249, 115, 22, 0.4);
+    }
+
+    .card__bar {
+      display: flex;
+      gap: 8px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* ─── Modal ───────────────────────────────────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 6, 14, 0.75);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .dialog {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      width: 100%;
+      max-width: 460px;
+      transform: translateY(16px) scale(0.97);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .overlay.open .dialog {
+      transform: translateY(0) scale(1);
+    }
+
+    .dialog__heading {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 30px;
+      letter-spacing: -0.3px;
+    }
+
+    .field {
+      margin-bottom: 22px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 13px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 400;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .field input::placeholder {
+      color: var(--text-faint);
+      font-weight: 300;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--indigo-muted);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .field select option {
+      background: var(--bg-elevated);
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .dialog__footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 30px;
+    }
+
+    /* ─── Toast ───────────────────────────────────────────── */
+    .toasts {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 22px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.35s ease-out;
+      min-width: 240px;
+    }
+
+    .toast--ok {
+      border-left: 3px solid var(--indigo-light);
+    }
+
+    .toast--err {
+      border-left: 3px solid #ef4444;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      to {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+    }
+
+    /* ─── Empty ───────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 80px 20px;
+      grid-column: 1 / -1;
+    }
+
+    .empty__icon {
+      font-size: 3.2rem;
+      margin-bottom: 14px;
+      opacity: 0.4;
+    }
+
+    .empty__text {
+      font-size: 1.05rem;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .empty__hint {
+      font-size: 0.85rem;
+      color: var(--text-faint);
+      margin-top: 6px;
+    }
+
+    /* ─── Responsive ──────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .header h1 {
+        font-size: 2.2rem;
+      }
+
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .spacer {
+        display: none;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dialog {
+        padding: 28px;
+      }
+
+      .row-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+    <header class="header">
+      <h1>CineVault</h1>
+      <p>Your curated movie recommendation engine</p>
+    </header>
+
+    <div class="controls">
+      <div class="filter-pill">
+        <label for="ratingFilter">Rating</label>
+        <select id="ratingFilter">
+          <option value="">All</option>
+          <option value="5">★★★★★</option>
+          <option value="4">★★★★☆</option>
+          <option value="3">★★★☆☆</option>
+          <option value="2">★★☆☆☆</option>
+          <option value="1">★☆☆☆☆</option>
+        </select>
+      </div>
+      <span class="count" id="movieCount"></span>
+      <div class="spacer"></div>
+      <button class="btn btn--accent" id="addMovieBtn" onclick="openAddModal()">+ Add Movie</button>
+    </div>
+
+    <div class="grid" id="movieGrid"></div>
+  </div>
+
+  <!-- Add / Edit Modal -->
+  <div class="overlay" id="modalOverlay">
+    <div class="dialog">
+      <h2 class="dialog__heading" id="modalTitle">Add Movie</h2>
+      <form id="movieForm" onsubmit="handleSubmit(event)">
+        <input type="hidden" id="editId" />
+        <div class="field">
+          <label for="titleInput">Title</label>
+          <input type="text" id="titleInput" placeholder="e.g. Inception" required />
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label for="genreInput">Genre</label>
+            <input type="text" id="genreInput" placeholder="e.g. Sci-Fi" required />
+          </div>
+          <div class="field">
+            <label for="ratingInput">Rating</label>
+            <select id="ratingInput" required>
+              <option value="">Select</option>
+              <option value="5">★★★★★</option>
+              <option value="4">★★★★☆</option>
+              <option value="3">★★★☆☆</option>
+              <option value="2">★★☆☆☆</option>
+              <option value="1">★☆☆☆☆</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="recommendInput">Recommend?</label>
+          <select id="recommendInput" required>
+            <option value="">Select</option>
+            <option value="Yes">Yes — Recommend</option>
+            <option value="No">No — Skip</option>
+          </select>
+        </div>
+        <div class="dialog__footer">
+          <button type="button" class="btn btn--outline" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn--accent" id="submitBtn">Add Movie</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div class="overlay" id="confirmOverlay">
+    <div class="dialog" style="max-width: 380px; text-align: center;">
+      <h2 class="dialog__heading" style="margin-bottom: 10px;">Delete Movie?</h2>
+      <p id="confirmText"
+        style="color: var(--text-dim); margin-bottom: 30px; font-size: 0.92rem; font-weight: 300;line-height:1.5;">This
+        action cannot be undone.</p>
+      <div class="dialog__footer" style="justify-content: center;">
+        <button type="button" class="btn btn--outline" id="confirmCancel">Cancel</button>
+        <button type="button" class="btn btn--delete" id="confirmDelete" style="padding: 12px 28px;">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toasts" id="toastContainer"></div>
+
+  <script>
+    const API = '/movies';
+    let movies = [];
+    let pendingDeleteId = null;
+
+    const grid = document.getElementById('movieGrid');
+    const movieCount = document.getElementById('movieCount');
+    const ratingFilter = document.getElementById('ratingFilter');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalTitle = document.getElementById('modalTitle');
+    const movieForm = document.getElementById('movieForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const editIdInput = document.getElementById('editId');
+    const titleInput = document.getElementById('titleInput');
+    const genreInput = document.getElementById('genreInput');
+    const ratingInput = document.getElementById('ratingInput');
+    const recommendInput = document.getElementById('recommendInput');
+    const confirmOverlay = document.getElementById('confirmOverlay');
+    const confirmText = document.getElementById('confirmText');
+    const confirmCancel = document.getElementById('confirmCancel');
+    const confirmDelete = document.getElementById('confirmDelete');
+
+    // ─── Fetch & Render ─────────────────────────────────
+    async function fetchMovies() {
+      const r = ratingFilter.value;
+      try {
+        const res = await fetch(r ? `${API}?rating=${r}` : API);
+        movies = await res.json();
+        render();
+      } catch { showToast('Failed to load movies', 'err'); }
+    }
+
+    function render() {
+      movieCount.textContent = `${movies.length} movie${movies.length !== 1 ? 's' : ''}`;
+      if (!movies.length) {
+        grid.innerHTML = `
+          <div class="empty">
+            <div class="empty__icon">🎬</div>
+            <div class="empty__text">No movies found</div>
+            <div class="empty__hint">Add your first movie or adjust the filter.</div>
+          </div>`;
+        return;
+      }
+      grid.innerHTML = movies.map((m, i) => `
+        <div class="card" style="animation-delay:${i * 0.07}s">
+          <div class="card__top">
+            <h3 class="card__title">${esc(m.title)}</h3>
+            <span class="pill pill--${m.recommendation.toLowerCase() === 'yes' ? 'yes' : 'no'}">
+              ${m.recommendation === 'Yes' ? '✓ rec' : '✗ skip'}
+            </span>
+          </div>
+          <div class="card__info">
+            <span class="genre-tag">${esc(m.genre)}</span>
+            <div class="stars">${starHtml(m.rating)}</div>
+          </div>
+          <div class="card__bar">
+            <button class="btn btn--outline btn--sm" onclick="openEditModal(${m.id})">Edit</button>
+            <button class="btn btn--delete btn--sm" onclick="deleteMovie(${m.id})">Delete</button>
+          </div>
+        </div>`).join('');
+    }
+
+    function starHtml(n) {
+      return Array.from({ length: 5 }, (_, i) => `<span class="star ${i < n ? 'star--on' : ''}">★</span>`).join('');
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // ─── Filter ─────────────────────────────────────────
+    ratingFilter.addEventListener('change', fetchMovies);
+
+    // ─── Modal ──────────────────────────────────────────
+    function openAddModal() {
+      editIdInput.value = '';
+      movieForm.reset();
+      modalTitle.textContent = 'Add Movie';
+      submitBtn.textContent = 'Add Movie';
+      modalOverlay.classList.add('open');
+    }
+
+    function openEditModal(id) {
+      const m = movies.find(x => x.id === id);
+      if (!m) return;
+      editIdInput.value = m.id;
+      titleInput.value = m.title;
+      genreInput.value = m.genre;
+      ratingInput.value = m.rating;
+      recommendInput.value = m.recommendation;
+      modalTitle.textContent = 'Edit Movie';
+      submitBtn.textContent = 'Save Changes';
+      modalOverlay.classList.add('open');
+    }
+
+    function closeModal() { modalOverlay.classList.remove('open'); }
+    modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+
+    // ─── Submit ─────────────────────────────────────────
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const body = {
+        title: titleInput.value.trim(),
+        genre: genreInput.value.trim(),
+        rating: parseInt(ratingInput.value),
+        recommendation: recommendInput.value,
+      };
+      const id = editIdInput.value;
+      try {
+        if (id) {
+          await fetch(`${API}/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          showToast('Movie updated!', 'ok');
+        } else {
+          await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          showToast('Movie added!', 'ok');
+        }
+        closeModal();
+        fetchMovies();
+      } catch { showToast('Something went wrong', 'err'); }
+    }
+
+    // ─── Delete ─────────────────────────────────────────
+    function deleteMovie(id) {
+      const m = movies.find(x => x.id === id);
+      pendingDeleteId = id;
+      confirmText.textContent = m ? `Delete "${m.title}"? This cannot be undone.` : 'Delete this movie? This cannot be undone.';
+      confirmOverlay.classList.add('open');
+    }
+
+    confirmCancel.addEventListener('click', () => { pendingDeleteId = null; confirmOverlay.classList.remove('open'); });
+    confirmOverlay.addEventListener('click', e => { if (e.target === confirmOverlay) { pendingDeleteId = null; confirmOverlay.classList.remove('open'); } });
+
+    confirmDelete.addEventListener('click', async () => {
+      if (pendingDeleteId === null) return;
+      const id = pendingDeleteId;
+      pendingDeleteId = null;
+      confirmOverlay.classList.remove('open');
+      try {
+        const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+        showToast(res.ok ? 'Movie deleted' : 'Failed to delete', res.ok ? 'ok' : 'err');
+        fetchMovies();
+      } catch { showToast('Failed to delete', 'err'); }
+    });
+
+    // ─── Toast ──────────────────────────────────────────
+    function showToast(msg, type = 'ok') {
+      const t = document.createElement('div');
+      t.className = `toast toast--${type}`;
+      t.innerHTML = `<span>${type === 'ok' ? '✓' : '✗'}</span> ${msg}`;
+      toastContainer.appendChild(t);
+      setTimeout(() => { t.style.animation = 'slideOut 0.3s ease-in forwards'; setTimeout(() => t.remove(), 300); }, 2800);
+    }
+
+    fetchMovies();
+  </script>
+</body>
+
+</html>
