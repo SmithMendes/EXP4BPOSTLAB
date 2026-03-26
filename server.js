@@ -82,6 +82,50 @@ app.delete("/movies/:id", (req, res) => {
   res.json({ message: "Movie deleted", movie: deleted[0] });
 });
 
+// ─── Poster Proxy (Wikipedia REST API — free, no key needed) ────
+const https = require("https");
+
+function wikiGet(slug) {
+  return new Promise((resolve) => {
+    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(slug)}`;
+    const opts = { headers: { 'User-Agent': 'CineVault/1.0 (student project)' } };
+    https.get(url, opts, (resp) => {
+      // Handle redirects
+      if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+        https.get(resp.headers.location, opts, (resp2) => {
+          let d = ""; resp2.on("data", c => d += c);
+          resp2.on("end", () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } });
+        }).on("error", () => resolve(null));
+        return;
+      }
+      let data = "";
+      resp.on("data", (chunk) => (data += chunk));
+      resp.on("end", () => {
+        try { resolve(JSON.parse(data)); } catch { resolve(null); }
+      });
+    }).on("error", () => resolve(null));
+  });
+}
+
+async function fetchPoster(title) {
+  // Try "Title_(film)" first, then just "Title"
+  for (const slug of [`${title}_(film)`, title]) {
+    const json = await wikiGet(slug);
+    if (json && json.thumbnail && json.thumbnail.source) {
+      // Request a larger image (replace width in URL)
+      return json.thumbnail.source.replace(/\/\d+px-/, '/500px-');
+    }
+  }
+  return null;
+}
+
+app.get("/api/poster", async (req, res) => {
+  const title = req.query.title;
+  if (!title) return res.status(400).json({ error: "Title is required" });
+  const poster = await fetchPoster(title);
+  res.json({ poster });
+});
+
 // ─── Start Server ───────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
