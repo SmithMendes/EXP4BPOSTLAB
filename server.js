@@ -34,7 +34,12 @@ function loadMovies() {
 }
 
 function saveMovies(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch (err) {
+    // Vercel has a read-only filesystem — data stays in-memory for the session
+    console.warn("Could not write movies.json (read-only filesystem)");
+  }
 }
 
 let movies = loadMovies();
@@ -134,3 +139,5 @@ app.get("/api/poster", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+module.exports = app;
