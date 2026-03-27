@@ -820,17 +820,17 @@
       return genreColors['default'];
     }
 
-    // Canvas-based cinematic poster generator
+    // Fetch poster directly from OMDB API (no server proxy needed)
+    const OMDB_KEY = '7840f265';
     function loadPoster(id, title, genre) {
       const el = document.getElementById(`poster-${id}`);
       if (!el) return;
 
-      // Try fetching from server first (iTunes API)
-      fetch(`/api/poster?title=${encodeURIComponent(title)}`)
+      fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(title)}&apikey=${OMDB_KEY}`)
         .then(r => r.json())
         .then(data => {
-          if (data.poster) {
-            el.innerHTML = `<img src="${data.poster}" alt="${esc(title)} poster" onerror="generateCanvasPoster('${id}','${title.replace(/'/g,"\\'")}','${genre.replace(/'/g,"\\'")}')"/>`;
+          if (data.Poster && data.Poster !== 'N/A') {
+            el.innerHTML = `<img src="${data.Poster}" alt="${esc(title)} poster" onerror="generateCanvasPoster('${id}','${title.replace(/'/g,"\\'")}','${genre.replace(/'/g,"\\'")}')"/>`;
           } else {
             generateCanvasPoster(id, title, genre);
           }
