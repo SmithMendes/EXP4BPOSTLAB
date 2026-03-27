@@ -10,13 +10,15 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // ─── Persistent JSON Storage ────────────────────────────────────
-const DATA_FILE = path.join(__dirname, "movies.json");
+// On Vercel, __dirname is read-only but /tmp is writable
+const DATA_FILE = process.env.VERCEL
+  ? path.join("/tmp", "movies.json")
+  : path.join(__dirname, "movies.json");
 
 const SEED_DATA = [
   { id: 1, title: "Inception", genre: "Sci-Fi", rating: 5, recommendation: "Yes" },
   { id: 2, title: "The Godfather", genre: "Crime", rating: 5, recommendation: "Yes" },
-  { id: 3, title: "Toy Story", genre: "Animation", rating: 4, recommendation: "Yes" },
-  { id: 4, title: "The Room", genre: "Drama", rating: 1, recommendation: "No" },
+  { id: 3, title: "The Room", genre: "Drama", rating: 1, recommendation: "No" },
 ];
 
 function loadMovies() {
