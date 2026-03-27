@@ -779,7 +779,7 @@
           </div>
         </div>`).join('');
 
-      // Fetch real posters from OMDB via server proxy
+      // Fetch real posters from OMDB API via server proxy
       movies.forEach(m => loadPoster(m.id, m.title, m.genre));
     }
 
