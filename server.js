@@ -1,6 +1,5 @@
 const express = require("express");
 const path = require("path");
-const fs = require("fs");
 const https = require("https");
 const app = express();
 const PORT = 3000;
@@ -9,43 +8,14 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// ─── Persistent JSON Storage ────────────────────────────────────
-// On Vercel, __dirname is read-only but /tmp is writable
-const DATA_FILE = process.env.VERCEL
-  ? path.join("/tmp", "movies.json")
-  : path.join(__dirname, "movies.json");
-
-const SEED_DATA = [
+// In-memory movie storage with seed data
+let movies = [
   { id: 1, title: "Inception", genre: "Sci-Fi", rating: 5, recommendation: "Yes" },
   { id: 2, title: "The Godfather", genre: "Crime", rating: 5, recommendation: "Yes" },
-  { id: 3, title: "The Room", genre: "Drama", rating: 1, recommendation: "No" },
+  { id: 3, title: "Toy Story", genre: "Animation", rating: 4, recommendation: "Yes" },
+  { id: 4, title: "The Room", genre: "Drama", rating: 1, recommendation: "No" },
 ];
-
-function loadMovies() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, "utf-8");
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.error("Error reading movies.json, using seed data:", err.message);
-  }
-  // First run — seed the file
-  saveMovies(SEED_DATA);
-  return [...SEED_DATA];
-}
-
-function saveMovies(data) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch (err) {
-    // Vercel has a read-only filesystem — data stays in-memory for the session
-    console.warn("Could not write movies.json (read-only filesystem)");
-  }
-}
-
-let movies = loadMovies();
-let nextId = movies.length ? Math.max(...movies.map((m) => m.id)) + 1 : 1;
+let nextId = 5;
 
 // ─── GET /movies ─────────────────────────────────────────────────
 app.get("/movies", (req, res) => {
@@ -75,7 +45,6 @@ app.post("/movies", (req, res) => {
 
   const newMovie = { id: nextId++, title, genre, rating, recommendation };
   movies.push(newMovie);
-  saveMovies(movies);
   res.status(201).json(newMovie);
 });
 
@@ -94,7 +63,6 @@ app.patch("/movies/:id", (req, res) => {
   if (rating !== undefined) movie.rating = rating;
   if (recommendation !== undefined) movie.recommendation = recommendation;
 
-  saveMovies(movies);
   res.json(movie);
 });
 
@@ -108,7 +76,6 @@ app.delete("/movies/:id", (req, res) => {
   }
 
   const deleted = movies.splice(index, 1);
-  saveMovies(movies);
   res.json({ message: "Movie deleted", movie: deleted[0] });
 });
 
@@ -143,3 +110,4 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
